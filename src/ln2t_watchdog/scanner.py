@@ -39,7 +39,7 @@ def scan_code_directory(code_dir: Path | None = None) -> List[DatasetConfig]:
     """Scan *code_dir* (default ``~/code``) for dataset configuration files.
 
     Returns a list of :class:`DatasetConfig` objects, one per dataset that
-    contains at least one ``ln2t_watchdog/*.yaml`` file.
+    contains at least one ``ln2t_watchdog/*.yaml`` or ``.ln2t_watchdog/*.yaml`` file.
     """
     if code_dir is None:
         code_dir = Path.home() / "code"
@@ -57,14 +57,24 @@ def scan_code_directory(code_dir: Path | None = None) -> List[DatasetConfig]:
         if dataset_name is None:
             continue
 
-        watchdog_dir = entry / "ln2t_watchdog"
-        if not watchdog_dir.is_dir():
-            continue
+        # Check both regular and hidden config directories
+        watchdog_dirs = [
+            entry / "ln2t_watchdog",
+            entry / ".ln2t_watchdog",
+        ]
 
-        yaml_files = sorted(
-            p for p in watchdog_dir.iterdir()
-            if p.is_file() and p.suffix in (".yaml", ".yml")
-        )
+        yaml_files = []
+        for watchdog_dir in watchdog_dirs:
+            if watchdog_dir.is_dir():
+                yaml_files.extend(
+                    sorted(
+                        p for p in watchdog_dir.iterdir()
+                        if p.is_file() and p.suffix in (".yaml", ".yml")
+                    )
+                )
+
+        # Remove duplicates and keep sorted order
+        yaml_files = sorted(set(yaml_files))
 
         if yaml_files:
             results.append(

@@ -11,6 +11,32 @@ from ln2t_watchdog.runner import LAST_RUN_FILE, RUN_LOG_FILE, STATE_DIR
 from ln2t_watchdog.scanner import DatasetConfig, scan_code_directory
 
 
+# ANSI color codes matching cli.py
+class _Colors:
+    """ANSI color codes for terminal output."""
+    CYAN = "\033[96m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    RED = "\033[91m"
+    BOLD = "\033[1m"
+    END = "\033[0m"
+
+
+def _format_header(title: str) -> str:
+    """Format a colored header with box drawing."""
+    width = 80
+    # Create the box
+    top = f"{_Colors.GREEN}╔{('═' * (width - 2))}╗{_Colors.END}"
+    middle = f"{_Colors.GREEN}║{_Colors.END}  {_Colors.BOLD}{title:<{width - 6}}{_Colors.END}  {_Colors.GREEN}║{_Colors.END}"
+    bottom = f"{_Colors.GREEN}╚{('═' * (width - 2))}╝{_Colors.END}"
+    return f"{top}\n{middle}\n{bottom}"
+
+
+def _format_section(title: str) -> str:
+    """Format a colored section header."""
+    return f"\n{_Colors.BOLD}{_Colors.CYAN}{title}{_Colors.END}"
+
+
 def get_last_run_time() -> Optional[datetime]:
     """Return the timestamp of the last watchdog run, or *None*."""
     if not LAST_RUN_FILE.is_file():
@@ -156,28 +182,26 @@ def get_systemd_status_summary() -> str:
     timer_info = check_systemd_unit("ln2t-watchdog.timer")
     service_info = check_systemd_unit("ln2t-watchdog.service")
     
-    lines.append("systemd units:")
-    
     # Timer status
     if timer_info["error"]:
-        lines.append(f"  Timer: ERROR – {timer_info['error']}")
+        lines.append(f"  {_Colors.RED}✗{_Colors.END} Timer: ERROR – {timer_info['error']}")
     else:
-        active_icon = "✓" if timer_info["active"] == "active" else "✗"
-        enabled_icon = "✓" if timer_info["enabled"] == "enabled" else "○"
+        active_icon = f"{_Colors.GREEN}✓{_Colors.END}" if timer_info["active"] == "active" else f"{_Colors.RED}✗{_Colors.END}"
+        enabled_icon = f"{_Colors.GREEN}✓{_Colors.END}" if timer_info["enabled"] == "enabled" else "○"
         lines.append(
-            f"  Timer:  {active_icon} active={timer_info['active']}, "
-            f"{enabled_icon} enabled={timer_info['enabled']}"
+            f"  {active_icon} Timer: {_Colors.YELLOW}active{_Colors.END}={timer_info['active']}, "
+            f"{enabled_icon} {_Colors.YELLOW}enabled{_Colors.END}={timer_info['enabled']}"
         )
     
     # Service status
     if service_info["error"]:
-        lines.append(f"  Service: ERROR – {service_info['error']}")
+        lines.append(f"  {_Colors.RED}✗{_Colors.END} Service: ERROR – {service_info['error']}")
     else:
-        active_icon = "✓" if service_info["active"] == "active" else "○"
-        enabled_icon = "✓" if service_info["enabled"] == "enabled" else "○"
+        active_icon = f"{_Colors.GREEN}✓{_Colors.END}" if service_info["active"] == "active" else "○"
+        enabled_icon = f"{_Colors.GREEN}✓{_Colors.END}" if service_info["enabled"] == "enabled" else "○"
         lines.append(
-            f"  Service: {active_icon} active={service_info['active']}, "
-            f"{enabled_icon} enabled={service_info['enabled']}"
+            f"  {active_icon} Service: {_Colors.YELLOW}active{_Colors.END}={service_info['active']}, "
+            f"{enabled_icon} {_Colors.YELLOW}enabled{_Colors.END}={service_info['enabled']}"
         )
     
     return "\n".join(lines)
@@ -186,43 +210,43 @@ def get_systemd_status_summary() -> str:
 def format_status_report(code_dir: Path | None = None) -> str:
     """Build a human-readable status report."""
     lines: List[str] = []
-    lines.append("=" * 60)
-    lines.append("  ln2t_watchdog status report")
-    lines.append("=" * 60)
-
+    
+    lines.append(_format_header("ln2t_watchdog status report"))
+    
     # Last run
     last_run = get_last_run_time()
     if last_run:
-        lines.append(f"\nLast run: {last_run.strftime('%Y-%m-%d %H:%M:%S')}")
+        lines.append(f"\n{_Colors.BOLD}Last run:{_Colors.END} {last_run.strftime('%Y-%m-%d %H:%M:%S')}")
     else:
-        lines.append("\nLast run: never (or state file missing)")
+        lines.append(f"\n{_Colors.BOLD}Last run:{_Colors.END} never (or state file missing)")
 
     # Systemd status
-    lines.append(f"\n--- systemd status ---")
+    lines.append(_format_section("systemd status"))
     lines.append(get_systemd_status_summary())
 
     # Discovered datasets
     datasets = scan_code_directory(code_dir)
-    lines.append(f"\n--- Discovered datasets ({len(datasets)}) ---")
+    lines.append(_format_section(f"Discovered datasets ({len(datasets)})"))
     if not datasets:
         lines.append("  (none)")
-    for ds in datasets:
-        lines.append(f"  {ds.dataset_name}")
-        for cf in ds.config_files:
-            lines.append(f"    config: {cf.name}")
+    else:
+        for ds in datasets:
+            lines.append(f"  {_Colors.CYAN}{ds.dataset_name}{_Colors.END}")
+            for cf in ds.config_files:
+                lines.append(f"    {_Colors.YELLOW}config:{_Colors.END} {cf.name}")
 
-        recent = get_recent_logs(ds.dataset_dir, limit=5)
-        if recent:
-            lines.append(f"    recent logs:")
-            for log_path in recent:
-                size = log_path.stat().st_size
-                mtime = datetime.fromtimestamp(log_path.stat().st_mtime)
-                lines.append(f"      {log_path.name}  ({size} bytes, {mtime:%Y-%m-%d %H:%M})")
+            recent = get_recent_logs(ds.dataset_dir, limit=5)
+            if recent:
+                lines.append(f"    {_Colors.YELLOW}recent logs:{_Colors.END}")
+                for log_path in recent:
+                    size = log_path.stat().st_size
+                    mtime = datetime.fromtimestamp(log_path.stat().st_mtime)
+                    lines.append(f"      {log_path.name}  ({size} bytes, {mtime:%Y-%m-%d %H:%M})")
 
     # Run history
     history = get_run_history(tail=20)
     if history:
-        lines.append(f"\n--- Recent run history ---")
+        lines.append(_format_section("Recent run history"))
         for h in history:
             lines.append(f"  {h}")
 
@@ -292,20 +316,19 @@ def format_jobs_report(jobs: List[Tuple[int, str, str, str]] | None = None) -> s
         jobs = get_running_jobs()
     
     lines: List[str] = []
-    lines.append("=" * 80)
-    lines.append("  Running watchdog jobs")
-    lines.append("=" * 80)
+    
+    lines.append(_format_header("Running watchdog jobs"))
     
     if not jobs:
         lines.append("\nNo running jobs found.")
     else:
-        lines.append(f"\nTotal: {len(jobs)} job(s)")
+        lines.append(f"\n{_Colors.BOLD}Total:{_Colors.END} {len(jobs)} job(s)")
         lines.append("")
-        lines.append(f"{'PID':<10} {'Dataset':<30} {'Tool':<20}")
-        lines.append("-" * 80)
+        lines.append(f"  {_Colors.BOLD}{'PID':<10} {'Dataset':<25} {'Tool':<20}{_Colors.END}")
+        lines.append(f"  {_Colors.CYAN}{'-' * 78}{_Colors.END}")
         
         for pid, dataset, tool, ts in sorted(jobs):
-            lines.append(f"{pid:<10} {dataset:<30} {tool:<20}")
+            lines.append(f"  {pid:<10} {dataset:<25} {tool:<20}")
     
     lines.append("")
     return "\n".join(lines)

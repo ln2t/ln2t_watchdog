@@ -93,16 +93,18 @@ def cmd_list(args: argparse.Namespace) -> None:
     datasets = scan_code_directory(code_dir)
 
     if not datasets:
-        print("No datasets with ln2t_watchdog configs found.")
+        print(f"{Colors.YELLOW}No datasets with ln2t_watchdog configs found.{Colors.END}")
         return
 
+    print()
     for ds in datasets:
-        print(f"\n{ds.dataset_name}")
+        print(f"{Colors.BOLD}{Colors.CYAN}{ds.dataset_name}{Colors.END}")
         for cf in ds.config_files:
-            print(f"  config: {cf}")
+            print(f"  {Colors.YELLOW}config:{Colors.END} {cf}")
             specs = parse_config_file(cf, ds.dataset_name)
             for spec in specs:
-                print(f"    -> {spec.build_command_string()}")
+                print(f"    {Colors.GREEN}→{Colors.END} {spec.build_command_string()}")
+    print()
 
 
 def cmd_status(args: argparse.Namespace) -> None:
@@ -117,20 +119,26 @@ def cmd_logs(args: argparse.Namespace) -> None:
     datasets = scan_code_directory(code_dir)
 
     target = args.dataset
+    found_any = False
     for ds in datasets:
         if target and ds.dataset_name != target:
             continue
         log_dir = ds.dataset_dir / "ln2t_watchdog" / "logs"
         if not log_dir.is_dir():
-            print(f"  No logs for {ds.dataset_name}")
+            print(f"  {Colors.YELLOW}No logs for {ds.dataset_name}{Colors.END}")
             continue
-        print(f"\nLogs for {ds.dataset_name}:")
+        found_any = True
+        print()
+        print(f"{Colors.BOLD}{Colors.CYAN}Logs for {ds.dataset_name}:{Colors.END}")
         logs = sorted(log_dir.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
         for lf in logs[: args.limit]:
             size = lf.stat().st_size
-            print(f"  {lf.name}  ({size} bytes)")
+            print(f"  {lf.name}  ({Colors.YELLOW}{size} bytes{Colors.END})")
         if not logs:
             print("  (none)")
+    
+    if not found_any and target:
+        print(f"{Colors.YELLOW}No logs found for dataset '{target}'.{Colors.END}")
 
 
 def cmd_init(args: argparse.Namespace) -> None:
@@ -164,8 +172,10 @@ ln2t_tools:
 
     try:
         output_path.write_text(template)
-        print(f"Template created: {output_path}")
-        print(f"Edit this file and place it in: ~/code/<dataset>-code/ln2t_watchdog/")
+        print()
+        print(f"{Colors.GREEN}✓{Colors.END} {Colors.BOLD}Template created:{Colors.END} {Colors.CYAN}{output_path}{Colors.END}")
+        print(f"  Edit this file and place it in: {Colors.YELLOW}~/code/<dataset>-code/ln2t_watchdog/{Colors.END}")
+        print()
     except OSError as exc:
         logger.error("Failed to write template: %s", exc)
         sys.exit(1)
@@ -181,9 +191,9 @@ def cmd_systemctl(args: argparse.Namespace) -> None:
     )
 
     print()
-    print("=" * 72)
-    print("  ln2t_watchdog systemd status")
-    print("=" * 72)
+    print(f"{Colors.GREEN}╔{'═' * 78}╗{Colors.END}")
+    print(f"{Colors.GREEN}║{Colors.END}  {Colors.BOLD}ln2t_watchdog systemd status{Colors.END:<76}  {Colors.GREEN}║{Colors.END}")
+    print(f"{Colors.GREEN}╚{'═' * 78}╝{Colors.END}")
     print()
 
     # Show summary
@@ -191,15 +201,13 @@ def cmd_systemctl(args: argparse.Namespace) -> None:
     print()
 
     if args.detailed:
-        print("-" * 72)
-        print("  Timer details")
-        print("-" * 72)
+        print(f"{Colors.BOLD}{Colors.CYAN}Timer details{Colors.END}")
+        print(f"{Colors.CYAN}{'-' * 80}{Colors.END}")
         print(get_systemd_timer_status())
         print()
 
-        print("-" * 72)
-        print("  Service details")
-        print("-" * 72)
+        print(f"{Colors.BOLD}{Colors.CYAN}Service details{Colors.END}")
+        print(f"{Colors.CYAN}{'-' * 80}{Colors.END}")
         print(get_systemd_service_status())
         print()
 
@@ -220,7 +228,7 @@ def cmd_kill(args: argparse.Namespace) -> None:
     jobs = get_running_jobs()
     
     if not jobs:
-        print("No running watchdog jobs found.")
+        print(f"{Colors.YELLOW}No running watchdog jobs found.{Colors.END}")
         return
     
     # Determine which jobs to kill
@@ -231,7 +239,7 @@ def cmd_kill(args: argparse.Namespace) -> None:
         pid = args.pid
         matching = [j for j in jobs if j[0] == pid]
         if not matching:
-            print(f"PID {pid} is not a running watchdog job.")
+            print(f"{Colors.RED}✗{Colors.END} PID {pid} is not a running watchdog job.")
             return
         jobs_to_kill = matching
     
@@ -247,7 +255,7 @@ def cmd_kill(args: argparse.Namespace) -> None:
             matching = [j for j in jobs if j[2] == job_spec]
         
         if not matching:
-            print(f"No running jobs matching '{job_spec}'.")
+            print(f"{Colors.RED}✗{Colors.END} No running jobs matching '{job_spec}'.")
             return
         jobs_to_kill = matching
     
@@ -256,7 +264,7 @@ def cmd_kill(args: argparse.Namespace) -> None:
         dataset = args.dataset
         matching = [j for j in jobs if j[1] == dataset]
         if not matching:
-            print(f"No running jobs for dataset '{dataset}'.")
+            print(f"{Colors.RED}✗{Colors.END} No running jobs for dataset '{dataset}'.")
             return
         jobs_to_kill = matching
     
@@ -265,24 +273,25 @@ def cmd_kill(args: argparse.Namespace) -> None:
         jobs_to_kill = jobs
     
     else:
-        print("No target specified. Use --pid, --job, --dataset, or --all.")
-        print("Run 'ln2t-watchdog jobs' to see running jobs.")
+        print(f"{Colors.YELLOW}No target specified.{Colors.END} Use --pid, --job, --dataset, or --all.")
+        print(f"Run '{Colors.CYAN}ln2t-watchdog jobs{Colors.END}' to see running jobs.")
         return
     
     if not jobs_to_kill:
-        print("No matching jobs to kill.")
+        print(f"{Colors.YELLOW}No matching jobs to kill.{Colors.END}")
         return
     
     # Confirm if killing multiple jobs
     if len(jobs_to_kill) > 1:
-        print(f"\nAbout to kill {len(jobs_to_kill)} job(s):")
+        print()
+        print(f"{Colors.BOLD}About to kill {len(jobs_to_kill)} job(s):{Colors.END}")
         for pid, dataset, tool, ts in sorted(jobs_to_kill):
-            print(f"  PID {pid}: {dataset}/{tool}")
+            print(f"  {Colors.YELLOW}PID {pid}:{Colors.END} {dataset}/{tool}")
         
         if not args.force:
-            response = input("\nProceed? (y/N): ").strip().lower()
+            response = input(f"\n{Colors.BOLD}Proceed? (y/N):{Colors.END} ").strip().lower()
             if response != "y":
-                print("Cancelled.")
+                print(f"{Colors.YELLOW}Cancelled.{Colors.END}")
                 return
     
     # Kill the jobs
@@ -293,7 +302,7 @@ def cmd_kill(args: argparse.Namespace) -> None:
         else:
             success, msg = kill_process_group(pid)
         
-        status_icon = "✓" if success else "✗"
+        status_icon = f"{Colors.GREEN}✓{Colors.END}" if success else f"{Colors.RED}✗{Colors.END}"
         print(f"  {status_icon} {msg}")
     
     print()
