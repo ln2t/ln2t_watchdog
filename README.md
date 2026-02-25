@@ -13,8 +13,22 @@ A **systemd user timer** triggers the scan every night at 02:00.
 
 ## Quick start
 
+`ln2t_watchdog` is a Python package that installs a CLI tool and systemd user timer.
+
+**Recommended: Use a dedicated Python virtual environment:**
+
 ```bash
-# Install (adds CLI + systemd timer)
+# Create a venv
+python3 -m venv ~/.venv/ln2t_watchdog
+source ~/.venv/ln2t_watchdog/bin/activate
+
+# Install
+./install.sh
+```
+
+Alternatively, install globally with `--user`:
+
+```bash
 ./install.sh
 ```
 
