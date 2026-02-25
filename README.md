@@ -16,9 +16,6 @@ A **systemd user timer** triggers the scan every night at 02:00.
 ```bash
 # Install (adds CLI + systemd timer)
 ./install.sh
-
-# Or for development
-./install.sh --dev
 ```
 
 ## Uninstall
