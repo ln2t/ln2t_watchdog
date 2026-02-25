@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import textwrap
 from pathlib import Path
 
 from ln2t_watchdog import __version__
@@ -14,6 +15,37 @@ from ln2t_watchdog.scanner import scan_code_directory
 from ln2t_watchdog.status import format_status_report
 
 logger = logging.getLogger("ln2t_watchdog")
+
+
+class Colors:
+    """ANSI color codes for terminal output."""
+
+    HEADER = "\033[95m"
+    BLUE = "\033[94m"
+    CYAN = "\033[96m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    RED = "\033[91m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+    END = "\033[0m"
+
+
+class ColoredHelpFormatter(argparse.RawDescriptionHelpFormatter):
+    """Custom formatter with colored section headers."""
+
+    def __init__(self, prog, indent_increment=2, max_help_position=40, width=100):
+        super().__init__(prog, indent_increment, max_help_position, width)
+
+    def _format_usage(self, usage, actions, groups, prefix):
+        if prefix is None:
+            prefix = f"{Colors.BOLD}Usage:{Colors.END} "
+        return super()._format_usage(usage, actions, groups, prefix)
+
+    def start_section(self, heading):
+        if heading:
+            heading = f"{Colors.BOLD}{Colors.CYAN}{heading}{Colors.END}"
+        super().start_section(heading)
 
 
 def _setup_logging(verbose: bool = False) -> None:
@@ -139,31 +171,153 @@ ln2t_tools:
         sys.exit(1)
 
 
-# ---------------------------------------------------------------------------
-# Main entry point
-# ---------------------------------------------------------------------------
+def create_parser() -> argparse.ArgumentParser:
+    """Create command-line argument parser."""
 
-def main(argv: list[str] | None = None) -> None:
+    description = textwrap.dedent(
+        f"""
+    {Colors.BOLD}{Colors.GREEN}╔════════════════════════════════════════════════════════════════════════════════╗
+    ║                      ln2t_watchdog v{__version__:<56}║
+    ║              Automated nightly data-processing scheduler                   ║
+    ╚════════════════════════════════════════════════════════════════════════════════╝{Colors.END}
+
+    {Colors.BOLD}Description:{Colors.END}
+      ln2t_watchdog scans dataset directories for processing configurations,
+      builds ln2t_tools commands, and launches them in the background with
+      full logging. Runs automatically every night via systemd timer.
+
+    {Colors.BOLD}Setup:{Colors.END}
+      1. Create folders in ~/code/YYYY-Adjective_Animal-randomString-code/ln2t_watchdog/
+      2. Place YAML configuration files there
+      3. Enable the systemd timer via install.sh
+    """
+    )
+
+    epilog = textwrap.dedent(
+        f"""
+    {Colors.BOLD}{Colors.GREEN}════════════════════════════════════════════════════════════════════════════════{Colors.END}
+    {Colors.BOLD}EXAMPLES{Colors.END}
+    {Colors.GREEN}════════════════════════════════════════════════════════════════════════════════{Colors.END}
+
+    {Colors.BOLD}Generate a template configuration file:{Colors.END}
+
+      {Colors.YELLOW}# Create template in current directory{Colors.END}
+      ln2t-watchdog init
+
+      {Colors.YELLOW}# Create template at custom location{Colors.END}
+      ln2t-watchdog init -o ~/my_pipelines.yaml
+
+    {Colors.BOLD}Discover and configure:{Colors.END}
+
+      {Colors.YELLOW}# List all discovered datasets and configured pipelines{Colors.END}
+      ln2t-watchdog list
+
+      {Colors.YELLOW}# Preview what would be executed (dry-run){Colors.END}
+      ln2t-watchdog run --dry-run
+
+    {Colors.BOLD}Manual execution and monitoring:{Colors.END}
+
+      {Colors.YELLOW}# Manually trigger a scan and launch all pipelines{Colors.END}
+      ln2t-watchdog run
+
+      {Colors.YELLOW}# Show watchdog status with last run time and recent logs{Colors.END}
+      ln2t-watchdog status
+
+      {Colors.YELLOW}# View recent execution logs{Colors.END}
+      ln2t-watchdog logs
+
+      {Colors.YELLOW}# View logs for a specific dataset{Colors.END}
+      ln2t-watchdog logs 2024-Happy_Dog-abc123
+
+    {Colors.BOLD}Advanced monitoring:{Colors.END}
+
+      {Colors.YELLOW}# Verbose output with debug logging{Colors.END}
+      ln2t-watchdog -v run
+
+      {Colors.YELLOW}# Override code directory{Colors.END}
+      ln2t-watchdog --code-dir /custom/path list
+
+    {Colors.BOLD}{Colors.GREEN}════════════════════════════════════════════════════════════════════════════════{Colors.END}
+    {Colors.BOLD}CONFIGURATION FILE FORMAT{Colors.END}
+    {Colors.GREEN}════════════════════════════════════════════════════════════════════════════════{Colors.END}
+
+    Location: {Colors.CYAN}~/code/<dataset>-code/ln2t_watchdog/*.yaml{Colors.END}
+
+    Example:
+      ln2t_tools:
+        freesurfer:
+          version: "7.2.0"
+          tool_args: "--recon-all all"
+          participant-label:
+            - "001"
+            - "042"
+
+    {Colors.BOLD}Note:{Colors.END} All fields (version, tool_args, participant-label)
+    are optional and will be omitted if not specified.
+
+    {Colors.BOLD}{Colors.GREEN}════════════════════════════════════════════════════════════════════════════════{Colors.END}
+    {Colors.BOLD}MORE INFORMATION{Colors.END}
+    {Colors.GREEN}════════════════════════════════════════════════════════════════════════════════{Colors.END}
+
+      Documentation:  https://github.com/ln2t/ln2t_watchdog
+      Report Issues:  https://github.com/ln2t/ln2t_watchdog/issues
+      Version:        {__version__}
+    """
+    )
+
     parser = argparse.ArgumentParser(
         prog="ln2t-watchdog",
-        description="Automated nightly scheduler for ln2t_tools pipelines.",
+        description=description,
+        epilog=epilog,
+        formatter_class=ColoredHelpFormatter,
+        add_help=False,
     )
-    parser.add_argument(
-        "--version", action="version", version=f"%(prog)s {__version__}"
+
+    # =========================================================================
+    # GENERAL OPTIONS
+    # =========================================================================
+    general = parser.add_argument_group(f"{Colors.BOLD}General Options{Colors.END}")
+
+    general.add_argument(
+        "-h",
+        "--help",
+        action="help",
+        default=argparse.SUPPRESS,
+        help="Show this help message and exit.",
     )
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Enable debug logging."
+
+    general.add_argument(
+        "--version",
+        action="version",
+        version=f"ln2t-watchdog {__version__}",
+        help="Show program version and exit.",
     )
-    parser.add_argument(
+
+    general.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose output (DEBUG level logging).",
+    )
+
+    general.add_argument(
         "--code-dir",
         default=None,
+        metavar="PATH",
         help="Override the code directory (default: ~/code).",
     )
 
+    # =========================================================================
+    # SUBCOMMANDS
+    # =========================================================================
     sub = parser.add_subparsers(dest="command", required=True)
 
     # --- run ---
-    p_run = sub.add_parser("run", help="Scan configs and launch tool commands.")
+    p_run = sub.add_parser(
+        "run",
+        help="Scan configurations and launch tool commands.",
+        formatter_class=ColoredHelpFormatter,
+    )
     p_run.add_argument(
         "-n",
         "--dry-run",
@@ -172,25 +326,59 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     # --- list ---
-    sub.add_parser("list", help="List discovered datasets and commands.")
+    sub.add_parser(
+        "list",
+        help="List discovered datasets and their configured pipelines.",
+        formatter_class=ColoredHelpFormatter,
+    )
 
     # --- status ---
-    sub.add_parser("status", help="Show watchdog status report.")
+    sub.add_parser(
+        "status",
+        help="Show watchdog status report (timer, last run, logs).",
+        formatter_class=ColoredHelpFormatter,
+    )
 
     # --- logs ---
-    p_logs = sub.add_parser("logs", help="Show recent log files.")
-    p_logs.add_argument("dataset", nargs="?", default=None, help="Filter by dataset name.")
-    p_logs.add_argument("-l", "--limit", type=int, default=20, help="Max log files to show.")
+    p_logs = sub.add_parser(
+        "logs",
+        help="Show recent log files for monitored datasets.",
+        formatter_class=ColoredHelpFormatter,
+    )
+    p_logs.add_argument(
+        "dataset",
+        nargs="?",
+        default=None,
+        help="Filter by dataset name (optional).",
+    )
+    p_logs.add_argument(
+        "-l",
+        "--limit",
+        type=int,
+        default=20,
+        metavar="N",
+        help="Maximum number of log files to show (default: 20).",
+    )
 
     # --- init ---
-    p_init = sub.add_parser("init", help="Generate a template configuration file.")
+    p_init = sub.add_parser(
+        "init",
+        help="Generate a template configuration file.",
+        formatter_class=ColoredHelpFormatter,
+    )
     p_init.add_argument(
         "-o",
         "--output",
         default="ln2t_watchdog_config.yaml",
+        metavar="FILE",
         help="Output file path (default: ln2t_watchdog_config.yaml).",
     )
 
+    return parser
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = create_parser()
     args = parser.parse_args(argv)
     _setup_logging(verbose=args.verbose)
 
@@ -202,3 +390,4 @@ def main(argv: list[str] | None = None) -> None:
         "init": cmd_init,
     }
     dispatch[args.command](args)
+
