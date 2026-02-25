@@ -68,7 +68,7 @@ echo -e "${BOLD}${GREEN}══════════════════�
 echo ""
 
 echo -e "${YELLOW}Note:${NC} State files in ${BOLD}~/.local/state/ln2t_watchdog/${NC} were not removed."
-echo "Remove them manually if needed:"
+echo -e "Remove them manually if needed:"
 echo ""
-echo "  ${YELLOW}rm -rf ~/.local/state/ln2t_watchdog${NC}"
+echo -e "  ${YELLOW}rm -rf ~/.local/state/ln2t_watchdog${NC}"
 echo ""
