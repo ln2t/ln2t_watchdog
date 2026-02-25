@@ -57,12 +57,24 @@ def get_run_history(tail: int = 30) -> List[str]:
 
 
 def get_recent_logs(dataset_dir: Path, limit: int = 10) -> List[Path]:
-    """Return the most recent log files for a dataset, newest first."""
-    log_dir = dataset_dir / "ln2t_watchdog" / "logs"
-    if not log_dir.is_dir():
+    """Return the most recent log files for a dataset, newest first.
+    
+    Searches for logs in both ln2t_watchdog/logs and .ln2t_watchdog/logs directories.
+    """
+    logs: List[Path] = []
+    
+    # Check both regular and hidden config directories
+    for config_dir in [dataset_dir / "ln2t_watchdog", dataset_dir / ".ln2t_watchdog"]:
+        log_dir = config_dir / "logs"
+        if log_dir.is_dir():
+            logs.extend(log_dir.iterdir())
+    
+    if not logs:
         return []
-    logs = sorted(log_dir.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
-    return logs[:limit]
+    
+    # Sort by modification time (newest first) and return top N
+    logs_sorted = sorted(logs, key=lambda p: p.stat().st_mtime, reverse=True)
+    return logs_sorted[:limit]
 
 
 def check_systemd_unit(unit_name: str) -> dict:

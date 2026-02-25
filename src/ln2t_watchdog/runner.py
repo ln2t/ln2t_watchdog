@@ -46,7 +46,17 @@ def run_tool(spec: ToolSpec, dataset_dir: Path, dry_run: bool = False) -> Option
     Returns the PID of the background process (or *None* in dry-run mode).
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_dir = log_dir_for_dataset(dataset_dir)
+    
+    # Determine log directory based on where the config file is located
+    # (either ln2t_watchdog/ or .ln2t_watchdog/)
+    if spec.config_file:
+        config_dir = spec.config_file.parent
+        log_dir = config_dir / "logs"
+    else:
+        # Fallback to default location if config_file is not set
+        log_dir = dataset_dir / "ln2t_watchdog" / "logs"
+    
+    log_dir.mkdir(parents=True, exist_ok=True)
 
     stdout_path = _log_path(log_dir, spec.tool_name, timestamp, "stdout")
     stderr_path = _log_path(log_dir, spec.tool_name, timestamp, "stderr")
