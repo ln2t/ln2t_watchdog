@@ -3,23 +3,13 @@
 #
 # Usage:
 #   ./install.sh          # install + enable timer
-#   ./install.sh --dev    # install in editable mode (for development)
 #
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-DEV=false
-if [[ "${1:-}" == "--dev" ]]; then
-    DEV=true
-fi
-
 echo "==> Installing ln2t_watchdog Python package …"
-if $DEV; then
-    pip install --user -e "$SCRIPT_DIR"
-else
-    pip install --user "$SCRIPT_DIR"
-fi
+pip install --user "$SCRIPT_DIR"
 
 echo "==> Installing systemd user units …"
 UNIT_DIR="${HOME}/.config/systemd/user"
