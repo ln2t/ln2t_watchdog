@@ -21,7 +21,7 @@ NC='\033[0m' # No Color
 
 print_header() {
     echo -e "${BOLD}${GREEN}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BOLD}${GREEN}║                         ln2t_watchdog installer                                 ║${NC}"
+    echo -e "${BOLD}${GREEN}║                         ln2t_watchdog installer                                ║${NC}"
     echo -e "${BOLD}${GREEN}╚════════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
