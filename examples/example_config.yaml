@@ -1,0 +1,24 @@
+# Example ln2t_watchdog configuration file
+#
+# Place this file (or your own variant) at:
+#   ~/code/<YYYY-Adjective_Animal-randomString>-code/ln2t_watchdog/<name>.yaml
+#
+# All fields under a tool name are optional.  If omitted they will simply
+# not appear in the generated ln2t_tools command.
+
+ln2t_tools:
+  freesurfer:
+    version: "7.2.0"
+    tool_args: "--recon-all all"
+    participant-label:
+      - "001"
+      - "042"
+      - "666"
+
+  fmriprep:
+    version: "21.1.4"
+    tool_args: "--fs-noreconall"
+    participant-label:
+      - "001"
+      - "042"
+      - "666"

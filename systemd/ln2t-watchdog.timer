@@ -1,0 +1,13 @@
+[Unit]
+Description=Run ln2t_watchdog every night at 02:00
+
+[Timer]
+# Calendar expression: every day at 02:00 local time
+OnCalendar=*-*-* 02:00:00
+# If the machine was off at 02:00, run as soon as it boots
+Persistent=true
+# Random delay up to 15 min to avoid thundering herd
+RandomizedDelaySec=900
+
+[Install]
+WantedBy=timers.target
