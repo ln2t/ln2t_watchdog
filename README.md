@@ -45,7 +45,7 @@ Alternatively, install globally with `--user`:
 ```
 ~/code/
 └── 2024-Happy_Dog-abc123-code/        # dataset code directory
-    └── ln2t_watchdog/
+    └── ln2t_watchdog/                 # configuration folder (or .ln2t_watchdog for hidden)
         ├── my_pipelines.yaml           # configuration file(s)
         └── logs/                        # created automatically
             ├── freesurfer_20260225_020012_stdout.log
@@ -55,7 +55,7 @@ Alternatively, install globally with `--user`:
 
 ## Configuration file format
 
-Place one or more `.yaml` files in `~/code/<dataset>-code/ln2t_watchdog/`.
+Place one or more `.yaml` files in `~/code/<dataset>-code/ln2t_watchdog/` or `~/.ln2t_watchdog/` (hidden folder for privacy).
 
 ```yaml
 ln2t_tools:

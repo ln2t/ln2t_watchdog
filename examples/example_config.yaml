@@ -3,6 +3,9 @@
 # Place this file (or your own variant) at:
 #   ~/code/<YYYY-Adjective_Animal-randomString>-code/ln2t_watchdog/<name>.yaml
 #
+# Or use a hidden folder for privacy:
+#   ~/code/<YYYY-Adjective_Animal-randomString>-code/.ln2t_watchdog/<name>.yaml
+#
 # All fields under a tool name are optional.  If omitted they will simply
 # not appear in the generated ln2t_tools command.
 

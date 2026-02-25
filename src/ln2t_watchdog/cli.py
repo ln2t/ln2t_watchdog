@@ -150,6 +150,7 @@ def cmd_init(args: argparse.Namespace) -> None:
 #
 # Edit this file to specify which ln2t_tools pipelines to run and their settings.
 # Place it in: ~/code/<dataset>-code/ln2t_watchdog/<name>.yaml
+# Or use a hidden folder: ~/code/<dataset>-code/.ln2t_watchdog/<name>.yaml
 
 ln2t_tools:
   # Example: freesurfer pipeline
@@ -175,6 +176,7 @@ ln2t_tools:
         print()
         print(f"{Colors.GREEN}✓{Colors.END} {Colors.BOLD}Template created:{Colors.END} {Colors.CYAN}{output_path}{Colors.END}")
         print(f"  Edit this file and place it in: {Colors.YELLOW}~/code/<dataset>-code/ln2t_watchdog/{Colors.END}")
+        print(f"  {Colors.BOLD}or{Colors.END} {Colors.YELLOW}~/code/<dataset>-code/.ln2t_watchdog/{Colors.END}")
         print()
     except OSError as exc:
         logger.error("Failed to write template: %s", exc)
@@ -385,6 +387,7 @@ def create_parser() -> argparse.ArgumentParser:
     {Colors.GREEN}════════════════════════════════════════════════════════════════════════════════{Colors.END}
 
     Location: {Colors.CYAN}~/code/<dataset>-code/ln2t_watchdog/*.yaml{Colors.END}
+    {Colors.CYAN}or (hidden): ~/code/<dataset>-code/.ln2t_watchdog/*.yaml{Colors.END}
 
     Example:
       ln2t_tools:
