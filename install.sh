@@ -9,7 +9,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "==> Installing ln2t_watchdog Python package …"
-pip install --user "$SCRIPT_DIR"
+# Detect if we're in a virtual environment
+if [[ -n "${VIRTUAL_ENV:-}" ]]; then
+    # Inside a venv: use pip install directly (no --user)
+    pip install "$SCRIPT_DIR"
+else
+    # Outside a venv: use --user to install for current user
+    pip install --user "$SCRIPT_DIR"
+fi
 
 echo "==> Installing systemd user units …"
 UNIT_DIR="${HOME}/.config/systemd/user"
