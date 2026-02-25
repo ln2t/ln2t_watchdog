@@ -204,6 +204,101 @@ def cmd_systemctl(args: argparse.Namespace) -> None:
         print()
 
 
+def cmd_jobs(args: argparse.Namespace) -> None:
+    """List all running watchdog jobs."""
+    from ln2t_watchdog.status import format_jobs_report
+    
+    print()
+    print(format_jobs_report())
+
+
+def cmd_kill(args: argparse.Namespace) -> None:
+    """Kill one or more running watchdog jobs."""
+    from ln2t_watchdog.runner import kill_process_group, force_kill_process_group
+    from ln2t_watchdog.status import get_running_jobs
+    
+    jobs = get_running_jobs()
+    
+    if not jobs:
+        print("No running watchdog jobs found.")
+        return
+    
+    # Determine which jobs to kill
+    jobs_to_kill = []
+    
+    if args.pid:
+        # Kill specific PID
+        pid = args.pid
+        matching = [j for j in jobs if j[0] == pid]
+        if not matching:
+            print(f"PID {pid} is not a running watchdog job.")
+            return
+        jobs_to_kill = matching
+    
+    elif args.job:
+        # Kill all jobs for a specific tool (or dataset.tool)
+        job_spec = args.job
+        if "." in job_spec:
+            # Format: dataset.tool
+            dataset, tool = job_spec.split(".", 1)
+            matching = [j for j in jobs if j[1] == dataset and j[2] == tool]
+        else:
+            # Just tool name - kill all instances  
+            matching = [j for j in jobs if j[2] == job_spec]
+        
+        if not matching:
+            print(f"No running jobs matching '{job_spec}'.")
+            return
+        jobs_to_kill = matching
+    
+    elif args.dataset:
+        # Kill all jobs for a specific dataset
+        dataset = args.dataset
+        matching = [j for j in jobs if j[1] == dataset]
+        if not matching:
+            print(f"No running jobs for dataset '{dataset}'.")
+            return
+        jobs_to_kill = matching
+    
+    elif args.all:
+        # Kill all running jobs
+        jobs_to_kill = jobs
+    
+    else:
+        print("No target specified. Use --pid, --job, --dataset, or --all.")
+        print("Run 'ln2t-watchdog jobs' to see running jobs.")
+        return
+    
+    if not jobs_to_kill:
+        print("No matching jobs to kill.")
+        return
+    
+    # Confirm if killing multiple jobs
+    if len(jobs_to_kill) > 1:
+        print(f"\nAbout to kill {len(jobs_to_kill)} job(s):")
+        for pid, dataset, tool, ts in sorted(jobs_to_kill):
+            print(f"  PID {pid}: {dataset}/{tool}")
+        
+        if not args.force:
+            response = input("\nProceed? (y/N): ").strip().lower()
+            if response != "y":
+                print("Cancelled.")
+                return
+    
+    # Kill the jobs
+    print()
+    for pid, dataset, tool, ts in sorted(jobs_to_kill):
+        if args.force:
+            success, msg = force_kill_process_group(pid)
+        else:
+            success, msg = kill_process_group(pid)
+        
+        status_icon = "✓" if success else "✗"
+        print(f"  {status_icon} {msg}")
+    
+    print()
+
+
 def create_parser() -> argparse.ArgumentParser:
     """Create command-line argument parser."""
 
@@ -426,6 +521,48 @@ def create_parser() -> argparse.ArgumentParser:
         help="Show detailed status output from systemctl.",
     )
 
+    # --- jobs ---
+    sub.add_parser(
+        "jobs",
+        help="List all running watchdog jobs.",
+        formatter_class=ColoredHelpFormatter,
+    )
+
+    # --- kill ---
+    p_kill = sub.add_parser(
+        "kill",
+        help="Kill one or more running watchdog jobs.",
+        formatter_class=ColoredHelpFormatter,
+    )
+    kill_group = p_kill.add_mutually_exclusive_group()
+    kill_group.add_argument(
+        "--pid",
+        type=int,
+        metavar="PID",
+        help="Kill a specific job by PID.",
+    )
+    kill_group.add_argument(
+        "--job",
+        metavar="TOOL",
+        help="Kill all jobs for a specific tool (use format 'dataset.tool' for specificity).",
+    )
+    kill_group.add_argument(
+        "--dataset",
+        metavar="DATASET",
+        help="Kill all jobs for a specific dataset.",
+    )
+    kill_group.add_argument(
+        "--all",
+        action="store_true",
+        help="Kill all running watchdog jobs.",
+    )
+    p_kill.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Send SIGKILL instead of SIGTERM, and skip confirmation prompts.",
+    )
+
     return parser
 
 
@@ -441,6 +578,8 @@ def main(argv: list[str] | None = None) -> None:
         "logs": cmd_logs,
         "init": cmd_init,
         "systemctl": cmd_systemctl,
+        "jobs": cmd_jobs,
+        "kill": cmd_kill,
     }
     dispatch[args.command](args)
 

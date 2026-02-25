@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import signal
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -113,3 +115,55 @@ def record_run_start() -> None:
         fh.write(f"\n{'='*60}\n")
         fh.write(f"Watchdog run started at {datetime.now().isoformat()}\n")
         fh.write(f"{'='*60}\n")
+
+
+def kill_process_group(pid: int) -> tuple[bool, str]:
+    """Kill a process and its entire process group.
+    
+    Since jobs are launched with start_new_session=True, they form their own
+    process group. This function kills the entire group.
+    
+    Returns a tuple of (success: bool, message: str).
+    """
+    try:
+        # Get the process group ID (should be the PID itself since we used start_new_session)
+        pgid = os.getpgid(pid)
+        
+        # Try to check if process exists first
+        try:
+            os.kill(pid, 0)  # Signal 0 just checks if PID exists
+        except ProcessLookupError:
+            return False, f"Process {pid} not found (already terminated?)"
+        
+        # Kill the entire process group with SIGTERM
+        os.killpg(pgid, signal.SIGTERM)
+        logger.info("Sent SIGTERM to process group %d (leader PID %d)", pgid, pid)
+        
+        return True, f"Terminated process group {pgid} (PID {pid})"
+    except ProcessLookupError:
+        return False, f"Process {pid} not found"
+    except PermissionError:
+        return False, f"Permission denied to kill PID {pid}"
+    except OSError as exc:
+        return False, f"Failed to kill PID {pid}: {exc}"
+
+
+def force_kill_process_group(pid: int) -> tuple[bool, str]:
+    """Force kill a process group with SIGKILL.
+    
+    This is more forceful than kill_process_group and should be used
+    after SIGTERM has been ignored.
+    
+    Returns a tuple of (success: bool, message: str).
+    """
+    try:
+        pgid = os.getpgid(pid)
+        os.killpg(pgid, signal.SIGKILL)
+        logger.info("Sent SIGKILL to process group %d (leader PID %d)", pgid, pid)
+        return True, f"Force-killed process group {pgid} (PID {pid})"
+    except ProcessLookupError:
+        return False, f"Process {pid} not found"
+    except PermissionError:
+        return False, f"Permission denied to kill PID {pid}"
+    except OSError as exc:
+        return False, f"Failed to force-kill PID {pid}: {exc}"

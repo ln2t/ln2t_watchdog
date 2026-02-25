@@ -228,3 +228,84 @@ def format_status_report(code_dir: Path | None = None) -> str:
 
     lines.append("")
     return "\n".join(lines)
+
+
+def get_running_jobs() -> List[Tuple[int, str, str, str]]:
+    """Parse run history log and return all running jobs.
+    
+    Returns a list of tuples: (pid, dataset_name, tool_name, timestamp)
+    Only includes jobs that are still alive (verified via /proc or kill check).
+    """
+    import re
+    import signal
+    
+    if not RUN_LOG_FILE.is_file():
+        return []
+    
+    running: List[Tuple[int, str, str, str]] = []
+    
+    # Parse all STARTED entries from the run history
+    for line in RUN_LOG_FILE.read_text().splitlines():
+        # Expected format: ISO_TIMESTAMP  dataset_name  tool_name  STARTED (PID xxxxx)
+        if "STARTED (PID " not in line:
+            continue
+        
+        # Extract the PID from the status string
+        match = re.search(r"STARTED \(PID (\d+)\)", line)
+        if not match:
+            continue
+        
+        pid = int(match.group(1))
+        parts = line.split(None, 3)  # Split on whitespace, max 4 parts
+        
+        if len(parts) < 4:
+            continue
+        
+        # parts[0] is timestamp (YYYYMMDD_HHMMSS format in the log)
+        timestamp_str = parts[0]
+        dataset_name = parts[1]
+        tool_name = parts[2]
+        
+        # Check if process still exists
+        try:
+            os.kill(pid, 0)  # Signal 0 just checks existence
+            running.append((pid, dataset_name, tool_name, timestamp_str))
+        except ProcessLookupError:
+            # Process is dead, skip it
+            pass
+        except PermissionError:
+            # Permission denied means process exists and is owned by another user
+            running.append((pid, dataset_name, tool_name, timestamp_str))
+        except OSError:
+            # Other error, skip
+            pass
+    
+    return running
+
+
+def format_jobs_report(jobs: List[Tuple[int, str, str, str]] | None = None) -> str:
+    """Format a report of running jobs.
+    
+    If jobs is None, fetches current running jobs.
+    """
+    if jobs is None:
+        jobs = get_running_jobs()
+    
+    lines: List[str] = []
+    lines.append("=" * 80)
+    lines.append("  Running watchdog jobs")
+    lines.append("=" * 80)
+    
+    if not jobs:
+        lines.append("\nNo running jobs found.")
+    else:
+        lines.append(f"\nTotal: {len(jobs)} job(s)")
+        lines.append("")
+        lines.append(f"{'PID':<10} {'Dataset':<30} {'Tool':<20}")
+        lines.append("-" * 80)
+        
+        for pid, dataset, tool, ts in sorted(jobs):
+            lines.append(f"{pid:<10} {dataset:<30} {tool:<20}")
+    
+    lines.append("")
+    return "\n".join(lines)
