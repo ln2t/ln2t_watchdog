@@ -171,6 +171,39 @@ ln2t_tools:
         sys.exit(1)
 
 
+def cmd_systemctl(args: argparse.Namespace) -> None:
+    """Check systemd timer and service status."""
+    from ln2t_watchdog.status import (
+        check_systemd_unit,
+        get_systemd_status_summary,
+        get_systemd_timer_status,
+        get_systemd_service_status,
+    )
+
+    print()
+    print("=" * 72)
+    print("  ln2t_watchdog systemd status")
+    print("=" * 72)
+    print()
+
+    # Show summary
+    print(get_systemd_status_summary())
+    print()
+
+    if args.detailed:
+        print("-" * 72)
+        print("  Timer details")
+        print("-" * 72)
+        print(get_systemd_timer_status())
+        print()
+
+        print("-" * 72)
+        print("  Service details")
+        print("-" * 72)
+        print(get_systemd_service_status())
+        print()
+
+
 def create_parser() -> argparse.ArgumentParser:
     """Create command-line argument parser."""
 
@@ -230,6 +263,12 @@ def create_parser() -> argparse.ArgumentParser:
       ln2t-watchdog logs 2024-Happy_Dog-abc123
 
     {Colors.BOLD}Advanced monitoring:{Colors.END}
+
+      {Colors.YELLOW}# Check systemd timer and service status{Colors.END}
+      ln2t-watchdog systemctl
+
+      {Colors.YELLOW}# Show detailed systemd status{Colors.END}
+      ln2t-watchdog systemctl --detailed
 
       {Colors.YELLOW}# Verbose output with debug logging{Colors.END}
       ln2t-watchdog -v run
@@ -374,6 +413,19 @@ def create_parser() -> argparse.ArgumentParser:
         help="Output file path (default: ln2t_watchdog_config.yaml).",
     )
 
+    # --- systemctl ---
+    p_systemctl = sub.add_parser(
+        "systemctl",
+        help="Check systemd timer and service status.",
+        formatter_class=ColoredHelpFormatter,
+    )
+    p_systemctl.add_argument(
+        "-d",
+        "--detailed",
+        action="store_true",
+        help="Show detailed status output from systemctl.",
+    )
+
     return parser
 
 
@@ -388,6 +440,7 @@ def main(argv: list[str] | None = None) -> None:
         "status": cmd_status,
         "logs": cmd_logs,
         "init": cmd_init,
+        "systemctl": cmd_systemctl,
     }
     dispatch[args.command](args)
 

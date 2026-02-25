@@ -39,6 +39,93 @@ def get_recent_logs(dataset_dir: Path, limit: int = 10) -> List[Path]:
     return logs[:limit]
 
 
+def check_systemd_unit(unit_name: str) -> dict:
+    """Check detailed status of a systemd user unit.
+    
+    Returns a dict with keys:
+    - 'exists': bool - whether the unit exists
+    - 'active': str - active state (active, inactive, etc.)
+    - 'enabled': str - enabled state (enabled, disabled, etc.)
+    - 'status': str - full status output
+    - 'error': str - error message if any
+    """
+    import subprocess
+    
+    result = {
+        "exists": False,
+        "active": "unknown",
+        "enabled": "unknown",
+        "status": "",
+        "error": None,
+    }
+    
+    try:
+        # Check if unit exists
+        check_result = subprocess.run(
+            ["systemctl", "--user", "list-units", unit_name, "-q"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        result["exists"] = check_result.returncode == 0
+        
+        # Get full status
+        status_result = subprocess.run(
+            ["systemctl", "--user", "status", unit_name],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        result["status"] = status_result.stdout.strip() or status_result.stderr.strip()
+        
+        # Extract active state
+        is_active_result = subprocess.run(
+            ["systemctl", "--user", "is-active", unit_name],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        result["active"] = is_active_result.stdout.strip()
+        
+        # Extract enabled state
+        is_enabled_result = subprocess.run(
+            ["systemctl", "--user", "is-enabled", unit_name],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        result["enabled"] = is_enabled_result.stdout.strip()
+        
+    except FileNotFoundError:
+        result["error"] = "systemctl not available"
+    except subprocess.TimeoutExpired:
+        result["error"] = "systemctl timed out"
+    except Exception as exc:  # noqa: BLE001
+        result["error"] = str(exc)
+    
+    return result
+
+
+def get_systemd_service_status() -> str:
+    """Query systemd for the ln2t-watchdog service status (best-effort)."""
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["systemctl", "--user", "status", "ln2t-watchdog.service"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return result.stdout.strip() or result.stderr.strip()
+    except FileNotFoundError:
+        return "systemctl not available"
+    except subprocess.TimeoutExpired:
+        return "systemctl timed out"
+    except Exception as exc:  # noqa: BLE001
+        return f"Error querying systemctl: {exc}"
+
+
 def get_systemd_timer_status() -> str:
     """Query systemd for the ln2t-watchdog timer status (best-effort)."""
     import subprocess
@@ -59,6 +146,43 @@ def get_systemd_timer_status() -> str:
         return f"Error querying systemctl: {exc}"
 
 
+def get_systemd_status_summary() -> str:
+    """Get a concise summary of systemd unit status.
+    
+    Returns a formatted string showing whether timer and service are active/enabled.
+    """
+    lines: List[str] = []
+    
+    timer_info = check_systemd_unit("ln2t-watchdog.timer")
+    service_info = check_systemd_unit("ln2t-watchdog.service")
+    
+    lines.append("systemd units:")
+    
+    # Timer status
+    if timer_info["error"]:
+        lines.append(f"  Timer: ERROR – {timer_info['error']}")
+    else:
+        active_icon = "✓" if timer_info["active"] == "active" else "✗"
+        enabled_icon = "✓" if timer_info["enabled"] == "enabled" else "○"
+        lines.append(
+            f"  Timer:  {active_icon} active={timer_info['active']}, "
+            f"{enabled_icon} enabled={timer_info['enabled']}"
+        )
+    
+    # Service status
+    if service_info["error"]:
+        lines.append(f"  Service: ERROR – {service_info['error']}")
+    else:
+        active_icon = "✓" if service_info["active"] == "active" else "○"
+        enabled_icon = "✓" if service_info["enabled"] == "enabled" else "○"
+        lines.append(
+            f"  Service: {active_icon} active={service_info['active']}, "
+            f"{enabled_icon} enabled={service_info['enabled']}"
+        )
+    
+    return "\n".join(lines)
+
+
 def format_status_report(code_dir: Path | None = None) -> str:
     """Build a human-readable status report."""
     lines: List[str] = []
@@ -73,9 +197,9 @@ def format_status_report(code_dir: Path | None = None) -> str:
     else:
         lines.append("\nLast run: never (or state file missing)")
 
-    # Systemd timer
-    lines.append(f"\n--- systemd timer ---")
-    lines.append(get_systemd_timer_status())
+    # Systemd status
+    lines.append(f"\n--- systemd status ---")
+    lines.append(get_systemd_status_summary())
 
     # Discovered datasets
     datasets = scan_code_directory(code_dir)
