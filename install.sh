@@ -12,10 +12,10 @@ echo "==> Installing ln2t_watchdog Python package …"
 # Detect if we're in a virtual environment
 if [[ -n "${VIRTUAL_ENV:-}" ]]; then
     # Inside a venv: use pip install directly (no --user)
-    pip install "$SCRIPT_DIR"
+    pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org "$SCRIPT_DIR"
 else
     # Outside a venv: use --user to install for current user
-    pip install --user "$SCRIPT_DIR"
+    pip install --user --trusted-host pypi.org --trusted-host files.pythonhosted.org "$SCRIPT_DIR"
 fi
 
 echo "==> Installing systemd user units …"
