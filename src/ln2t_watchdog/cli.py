@@ -101,6 +101,44 @@ def cmd_logs(args: argparse.Namespace) -> None:
             print("  (none)")
 
 
+def cmd_init(args: argparse.Namespace) -> None:
+    """Generate a template configuration file."""
+    output_path = Path(args.output).expanduser()
+
+    template = """\
+# ln2t_watchdog configuration template
+#
+# Edit this file to specify which ln2t_tools pipelines to run and their settings.
+# Place it in: ~/code/<dataset>-code/ln2t_watchdog/<name>.yaml
+
+ln2t_tools:
+  # Example: freesurfer pipeline
+  # freesurfer:
+  #   version: "7.2.0"
+  #   tool_args: "--recon-all all"
+  #   participant-label:
+  #     - "001"
+  #     - "042"
+  #     - "666"
+  #
+  # Example: fmriprep pipeline
+  # fmriprep:
+  #   version: "21.1.4"
+  #   tool_args: "--fs-noreconall"
+  #   participant-label:
+  #     - "001"
+  #     - "042"
+"""
+
+    try:
+        output_path.write_text(template)
+        print(f"Template created: {output_path}")
+        print(f"Edit this file and place it in: ~/code/<dataset>-code/ln2t_watchdog/")
+    except OSError as exc:
+        logger.error("Failed to write template: %s", exc)
+        sys.exit(1)
+
+
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
@@ -144,6 +182,15 @@ def main(argv: list[str] | None = None) -> None:
     p_logs.add_argument("dataset", nargs="?", default=None, help="Filter by dataset name.")
     p_logs.add_argument("-l", "--limit", type=int, default=20, help="Max log files to show.")
 
+    # --- init ---
+    p_init = sub.add_parser("init", help="Generate a template configuration file.")
+    p_init.add_argument(
+        "-o",
+        "--output",
+        default="ln2t_watchdog_config.yaml",
+        help="Output file path (default: ln2t_watchdog_config.yaml).",
+    )
+
     args = parser.parse_args(argv)
     _setup_logging(verbose=args.verbose)
 
@@ -152,5 +199,6 @@ def main(argv: list[str] | None = None) -> None:
         "list": cmd_list,
         "status": cmd_status,
         "logs": cmd_logs,
+        "init": cmd_init,
     }
     dispatch[args.command](args)

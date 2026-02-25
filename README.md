@@ -86,10 +86,14 @@ ln2t-watchdog [--code-dir DIR] [-v] <command>
 | `list`    | List discovered datasets and the commands that would be generated. |
 | `status`  | Print a status report (last run, systemd timer state, recent logs). |
 | `logs`    | Show recent log files, optionally filtered by dataset name. |
+| `init`    | Generate a template configuration file. |
 
 ### Examples
 
 ```bash
+# Generate a template config file
+ln2t-watchdog init -o my_pipelines.yaml
+
 # Preview what would run
 ln2t-watchdog run --dry-run
 
