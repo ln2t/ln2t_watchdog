@@ -19,6 +19,7 @@ class ToolSpec:
     tool_name: str
     dataset_name: str
     version: Optional[str] = None
+    options: Optional[str] = None
     tool_args: Optional[str] = None
     participant_labels: List[str] = field(default_factory=list)
 
@@ -32,12 +33,15 @@ class ToolSpec:
         if self.version:
             cmd.extend(["--version", self.version])
 
-        if self.tool_args:
-            cmd.extend(["--tool-args", self.tool_args])
+        if self.options:
+            cmd.extend(self.options.split())
 
         if self.participant_labels:
             cmd.append("--participant-label")
             cmd.extend(self.participant_labels)
+
+        if self.tool_args:
+            cmd.extend(["--tool-args", self.tool_args])
 
         return cmd
 
@@ -45,13 +49,16 @@ class ToolSpec:
         """Return a shell-friendly string representation of the command."""
         parts: List[str] = ["ln2t_tools", self.tool_name, "--dataset", self.dataset_name]
 
-        if self.version:
-            parts.extend(["--version", self.version])
+        if self.options:
+            parts.append(self.options)
+
+        if self.participant_labels:
+            parts.append("--participant-label")
+            parts.extend(self.participant_labels)
 
         if self.tool_args:
             # Wrap tool_args in quotes so it stays a single argument
-            parts.extend(["--tool-args", f'"{self.tool_args}"'])
-
+            parts.extend(["--tool-args", f'"{self.tool_args}"']
         if self.participant_labels:
             parts.append("--participant-label")
             parts.extend(self.participant_labels)
@@ -65,8 +72,12 @@ def parse_config_file(config_path: Path, dataset_name: str) -> List[ToolSpec]:
     Expected YAML structure::
 
         ln2t_tools:
+          import:
+            options: "--full --only-uncompressed"
+            tool_args: "VALUE"
           freesurfer:
             version: "7.2.0"
+            options: "--custom-flag"
             tool_args: "--recon-all all"
             participant-label:
               - "001"
@@ -134,9 +145,7 @@ def _parse_tools_section(
                 config_path,
                 type(options).__name__,
             )
-            continue
-
-        version = options.get("version")
+        opts = options.get("options") or options.get("opts")
         tool_args = options.get("tool_args") or options.get("tool-args")
         participant_labels_raw = options.get("participant-label") or options.get("participant_label")
 
@@ -148,6 +157,10 @@ def _parse_tools_section(
 
         specs.append(
             ToolSpec(
+                tool_name=str(tool_name),
+                dataset_name=dataset_name,
+                version=str(version) if version is not None else None,
+                options=str(opts) if opts
                 tool_name=str(tool_name),
                 dataset_name=dataset_name,
                 version=str(version) if version is not None else None,

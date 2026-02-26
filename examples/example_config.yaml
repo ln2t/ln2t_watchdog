@@ -10,18 +10,11 @@
 # not appear in the generated ln2t_tools command.
 
 ln2t_tools:
+  import:
+    options: "--full --only-uncompressed"
+    tool_args: "--verbose"
+
   freesurfer:
     version: "7.2.0"
-    tool_args: "--recon-all all"
-    participant-label:
-      - "001"
-      - "042"
-      - "666"
-
-  fmriprep:
-    version: "21.1.4"
-    tool_args: "--fs-noreconall"
-    participant-label:
-      - "001"
-      - "042"
+    options: "--custom-flag"
       - "666"
