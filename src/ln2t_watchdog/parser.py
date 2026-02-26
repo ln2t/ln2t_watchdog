@@ -49,6 +49,9 @@ class ToolSpec:
         """Return a shell-friendly string representation of the command."""
         parts: List[str] = ["ln2t_tools", self.tool_name, "--dataset", self.dataset_name]
 
+        if self.version:
+            parts.extend(["--version", self.version])
+
         if self.options:
             parts.append(self.options)
 
@@ -58,10 +61,7 @@ class ToolSpec:
 
         if self.tool_args:
             # Wrap tool_args in quotes so it stays a single argument
-            parts.extend(["--tool-args", f'"{self.tool_args}"']
-        if self.participant_labels:
-            parts.append("--participant-label")
-            parts.extend(self.participant_labels)
+            parts.extend(["--tool-args", f'"{self.tool_args}"'])
 
         return " ".join(parts)
 
@@ -145,6 +145,9 @@ def _parse_tools_section(
                 config_path,
                 type(options).__name__,
             )
+            continue
+
+        version = options.get("version")
         opts = options.get("options") or options.get("opts")
         tool_args = options.get("tool_args") or options.get("tool-args")
         participant_labels_raw = options.get("participant-label") or options.get("participant_label")
@@ -160,10 +163,7 @@ def _parse_tools_section(
                 tool_name=str(tool_name),
                 dataset_name=dataset_name,
                 version=str(version) if version is not None else None,
-                options=str(opts) if opts
-                tool_name=str(tool_name),
-                dataset_name=dataset_name,
-                version=str(version) if version is not None else None,
+                options=str(opts) if opts is not None else None,
                 tool_args=str(tool_args) if tool_args is not None else None,
                 participant_labels=participant_labels,
                 config_file=config_path,
