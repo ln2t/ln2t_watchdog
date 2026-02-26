@@ -316,7 +316,7 @@ def create_parser() -> argparse.ArgumentParser:
     description = textwrap.dedent(
         f"""
     {Colors.BOLD}{Colors.GREEN}╔════════════════════════════════════════════════════════════════════════════════╗
-    ║                      ln2t_watchdog v{__version__:<10}║
+    ║                      ln2t_watchdog v{__version__}                              ║
     ║              Automated nightly data-processing scheduler                       ║
     ╚════════════════════════════════════════════════════════════════════════════════╝{Colors.END}
 
