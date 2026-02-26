@@ -67,6 +67,13 @@ def cmd_run(args: argparse.Namespace) -> None:
     code_dir = Path(args.code_dir).expanduser() if args.code_dir else None
     datasets = scan_code_directory(code_dir)
 
+    # Filter by dataset name if specified
+    if args.dataset:
+        datasets = [ds for ds in datasets if ds.dataset_name == args.dataset]
+        if not datasets:
+            logger.warning("No dataset found with name '%s'.", args.dataset)
+            return
+
     if not datasets:
         logger.info("No datasets with ln2t_watchdog configs found.")
         return
@@ -469,6 +476,12 @@ def create_parser() -> argparse.ArgumentParser:
         "--dry-run",
         action="store_true",
         help="Print commands without executing them.",
+    )
+    p_run.add_argument(
+        "--dataset",
+        metavar="DATASET",
+        default=None,
+        help="Only run watchdog for the specified dataset name.",
     )
 
     # --- list ---
