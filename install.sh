@@ -65,6 +65,28 @@ fi
 
 print_success "Python package installed"
 
+print_section "Creating symlink for executable"
+
+VENV_BIN="/opt/ln2t/venv/ln2t_watchdog/bin/ln2t-watchdog"
+LOCAL_BIN="${HOME}/.local/bin/ln2t-watchdog"
+
+if [[ ! -f "$VENV_BIN" ]]; then
+    print_error "venv executable not found at ${VENV_BIN}"
+    exit 1
+fi
+
+mkdir -p "${HOME}/.local/bin"
+
+# Remove existing symlink if present
+if [[ -L "$LOCAL_BIN" ]]; then
+    rm "$LOCAL_BIN"
+fi
+
+# Create symlink
+ln -s "$VENV_BIN" "$LOCAL_BIN"
+
+print_success "Symlink created: ${LOCAL_BIN} → ${VENV_BIN}"
+
 print_section "Installing systemd user units"
 
 UNIT_DIR="${HOME}/.config/systemd/user"
