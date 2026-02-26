@@ -19,6 +19,10 @@ STATE_DIR = Path.home() / ".local" / "state" / "ln2t_watchdog"
 LAST_RUN_FILE = STATE_DIR / "last_run"
 RUN_LOG_FILE = STATE_DIR / "run_history.log"
 
+# Virtual environment path for ln2t_tools
+VENV_PATH = "/opt/ln2t/venv/ln2t_tools"
+VENV_ACTIVATE = f"{VENV_PATH}/bin/activate"
+
 
 def ensure_state_dir() -> None:
     """Create the state directory if it does not exist."""
@@ -65,18 +69,23 @@ def run_tool(spec: ToolSpec, dataset_dir: Path, dry_run: bool = False) -> Option
     cmd_str = spec.build_command_string()
 
     if dry_run:
-        logger.info("[DRY-RUN] %s", cmd_str)
-        print(f"[DRY-RUN] {cmd_str}")
+        logger.info("[DRY-RUN] source %s && %s", VENV_ACTIVATE, cmd_str)
+        print(f"[DRY-RUN] source {VENV_ACTIVATE} && {cmd_str}")
         return None
 
     logger.info("Launching: %s", cmd_str)
     logger.info("  stdout → %s", stdout_path)
     logger.info("  stderr → %s", stderr_path)
 
+    # Build shell command that activates venv before running ln2t_tools
+    shell_cmd = f"source {VENV_ACTIVATE} && {' '.join(cmd)}"
+    logger.info("  venv → %s", VENV_ACTIVATE)
+
     try:
         with open(stdout_path, "w") as f_out, open(stderr_path, "w") as f_err:
             proc = subprocess.Popen(
-                cmd,
+                shell_cmd,
+                shell=True,
                 stdout=f_out,
                 stderr=f_err,
                 start_new_session=True,  # detach from parent process group

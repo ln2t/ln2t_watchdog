@@ -12,7 +12,7 @@ from ln2t_watchdog import __version__
 from ln2t_watchdog.parser import parse_config_file
 from ln2t_watchdog.runner import record_run_start, run_all
 from ln2t_watchdog.scanner import scan_code_directory
-from ln2t_watchdog.status import format_status_report
+from ln2t_watchdog.status import format_status_report, get_recent_logs
 
 logger = logging.getLogger("ln2t_watchdog")
 
@@ -121,7 +121,10 @@ def cmd_status(args: argparse.Namespace) -> None:
 
 
 def cmd_logs(args: argparse.Namespace) -> None:
-    """Show recent log files for a dataset."""
+    """Show recent log files for a dataset.
+    
+    Searches for logs in both ln2t_watchdog/logs and .ln2t_watchdog/logs directories.
+    """
     code_dir = Path(args.code_dir).expanduser() if args.code_dir else None
     datasets = scan_code_directory(code_dir)
 
@@ -130,19 +133,19 @@ def cmd_logs(args: argparse.Namespace) -> None:
     for ds in datasets:
         if target and ds.dataset_name != target:
             continue
-        log_dir = ds.dataset_dir / "ln2t_watchdog" / "logs"
-        if not log_dir.is_dir():
+        
+        # Get logs from both regular and hidden config directories
+        logs = get_recent_logs(ds.dataset_dir, limit=args.limit)
+        
+        if not logs:
             print(f"  {Colors.YELLOW}No logs for {ds.dataset_name}{Colors.END}")
             continue
         found_any = True
         print()
         print(f"{Colors.BOLD}{Colors.CYAN}Logs for {ds.dataset_name}:{Colors.END}")
-        logs = sorted(log_dir.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
-        for lf in logs[: args.limit]:
+        for lf in logs:
             size = lf.stat().st_size
             print(f"  {lf.name}  ({Colors.YELLOW}{size} bytes{Colors.END})")
-        if not logs:
-            print("  (none)")
     
     if not found_any and target:
         print(f"{Colors.YELLOW}No logs found for dataset '{target}'.{Colors.END}")
