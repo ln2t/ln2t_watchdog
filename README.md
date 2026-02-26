@@ -96,7 +96,7 @@ ln2t-watchdog [--code-dir DIR] [-v] <command>
 
 | Command   | Description |
 |-----------|-------------|
-| `run`     | Scan all configs and launch commands. Use `--dry-run` / `-n` to preview. |
+| `run`     | Scan all configs and launch commands. Use `--dry-run` / `-n` to preview. Optional: `--dataset NAME` to run only for a specific dataset. |
 | `list`    | List discovered datasets and the commands that would be generated. |
 | `status`  | Print a status report (last run, systemd timer state, recent logs). |
 | `logs`    | Show recent log files, optionally filtered by dataset name. |
@@ -113,6 +113,9 @@ ln2t-watchdog run --dry-run
 
 # Actually launch everything
 ln2t-watchdog run
+
+# Run only for a specific dataset
+ln2t-watchdog run --dataset 2024-Happy_Dog-abc123
 
 # Show status
 ln2t-watchdog status

@@ -366,6 +366,9 @@ def create_parser() -> argparse.ArgumentParser:
       {Colors.YELLOW}# Manually trigger a scan and launch all pipelines{Colors.END}
       ln2t-watchdog run
 
+      {Colors.YELLOW}# Run only for a specific dataset{Colors.END}
+      ln2t-watchdog run --dataset 2024-Happy_Dog-abc123
+
       {Colors.YELLOW}# Show watchdog status with last run time and recent logs{Colors.END}
       ln2t-watchdog status
 
