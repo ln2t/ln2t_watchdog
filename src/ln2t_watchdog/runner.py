@@ -69,8 +69,8 @@ def run_tool(spec: ToolSpec, dataset_dir: Path, dry_run: bool = False) -> Option
     cmd_str = spec.build_command_string()
 
     if dry_run:
-        logger.info("[DRY-RUN] source %s && %s", VENV_ACTIVATE, cmd_str)
-        print(f"[DRY-RUN] source {VENV_ACTIVATE} && {cmd_str}")
+        logger.info("[DRY-RUN] . %s && %s", VENV_ACTIVATE, cmd_str)
+        print(f"[DRY-RUN] . {VENV_ACTIVATE} && {cmd_str}")
         return None
 
     logger.info("Launching: %s", cmd_str)
@@ -78,7 +78,7 @@ def run_tool(spec: ToolSpec, dataset_dir: Path, dry_run: bool = False) -> Option
     logger.info("  stderr → %s", stderr_path)
 
     # Build shell command that activates venv before running ln2t_tools
-    shell_cmd = f"source {VENV_ACTIVATE} && {' '.join(cmd)}"
+    shell_cmd = f". {VENV_ACTIVATE} && {' '.join(cmd)}"
     logger.info("  venv → %s", VENV_ACTIVATE)
 
     try:
