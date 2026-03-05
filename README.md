@@ -100,6 +100,7 @@ ln2t-watchdog [--code-dir DIR] [-v] <command>
 | `list`    | List discovered datasets and the commands that would be generated. |
 | `status`  | Print a status report (last run, systemd timer state, recent logs). |
 | `logs`    | Show recent log files, optionally filtered by dataset name. |
+| `clean-logfiles` | Delete old log files, keeping only the most recent one per dataset. Options: `--dataset NAME` to clean only that dataset (default: all); `-f` / `--force` to skip confirmation prompt. |
 | `init`    | Generate a template configuration file. |
 
 ### Examples
@@ -128,6 +129,11 @@ ln2t-watchdog list
 
 # Show logs for a specific dataset
 ln2t-watchdog logs 2024-Happy_Dog-abc123
+
+# Clean up old log files (keep only the most recent per dataset)
+ln2t-watchdog clean-logfiles        # Clean all datasets with confirmation
+ln2t-watchdog clean-logfiles --force # Clean without confirmation
+ln2t-watchdog clean-logfiles --dataset 2024-Happy_Dog-abc123  # Clean only one dataset
 
 # View and manage running jobs
 ln2t-watchdog jobs              # List all running jobs

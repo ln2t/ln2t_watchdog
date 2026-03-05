@@ -507,6 +507,26 @@ def create_parser() -> argparse.ArgumentParser:
       {Colors.YELLOW}# View logs for a specific dataset{Colors.END}
       ln2t-watchdog logs 2024-Happy_Dog-abc123
 
+      {Colors.YELLOW}# Clean up old log files (keep only the most recent per dataset){Colors.END}
+      ln2t-watchdog clean-logfiles
+
+      {Colors.YELLOW}# Clean logs for a specific dataset without confirmation{Colors.END}
+      ln2t-watchdog clean-logfiles --dataset 2024-Happy_Dog-abc123 --force
+
+    {Colors.BOLD}Job management:{Colors.END}
+
+      {Colors.YELLOW}# List all running watchdog jobs{Colors.END}
+      ln2t-watchdog jobs
+
+      {Colors.YELLOW}# Terminate all running jobs{Colors.END}
+      ln2t-watchdog kill --all
+
+      {Colors.YELLOW}# Terminate a job by PID{Colors.END}
+      ln2t-watchdog kill --pid 12345
+
+      {Colors.YELLOW}# Terminate all jobs for a dataset{Colors.END}
+      ln2t-watchdog kill --dataset 2024-Happy_Dog-abc123
+
     {Colors.BOLD}Advanced monitoring:{Colors.END}
 
       {Colors.YELLOW}# Check systemd timer and service status{Colors.END}
