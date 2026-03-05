@@ -62,8 +62,46 @@ def _setup_logging(verbose: bool = False) -> None:
 # Sub-commands
 # ---------------------------------------------------------------------------
 
+def _filter_duplicate_specs(specs: list, running_jobs: list, force: bool = False) -> tuple[list, list]:
+    """Filter out specs that already have running jobs.
+    
+    Args:
+        specs: List of ToolSpec objects to potentially launch.
+        running_jobs: List of (pid, dataset_name, tool_name, timestamp) tuples from get_running_jobs().
+        force: If True, skip duplicate checking (return all specs).
+    
+    Returns:
+        A tuple of (specs_to_run, specs_skipped) where:
+        - specs_to_run: Specs that can be launched (either force=True or no running duplicate)
+        - specs_skipped: Specs that were skipped due to existing running job
+    """
+    if force:
+        return specs, []
+    
+    to_run = []
+    skipped = []
+    
+    for spec in specs:
+        # Check if a job with same dataset and tool is already running
+        is_running = any(
+            job_dataset == spec.dataset_name and job_tool == spec.tool_name
+            for _, job_dataset, job_tool, _ in running_jobs
+        )
+        
+        if is_running:
+            skipped.append(spec)
+        else:
+            to_run.append(spec)
+    
+    return to_run, skipped
+
+
 def cmd_run(args: argparse.Namespace) -> None:
-    """Scan for configs and launch all discovered tool commands."""
+    """Scan for configs and launch all discovered tool commands.
+    
+    By default, prevents launching duplicate jobs (same tool on same dataset).
+    Use --force to bypass this check.
+    """
     code_dir = Path(args.code_dir).expanduser() if args.code_dir else None
     datasets = scan_code_directory(code_dir)
 
@@ -79,6 +117,11 @@ def cmd_run(args: argparse.Namespace) -> None:
         return
 
     record_run_start()
+    
+    # Get currently running jobs (for duplicate prevention)
+    from ln2t_watchdog.status import get_running_jobs
+    running_jobs = get_running_jobs()
+    total_skipped = 0
 
     total_launched = 0
     for ds in datasets:
@@ -87,11 +130,30 @@ def cmd_run(args: argparse.Namespace) -> None:
             if not specs:
                 logger.warning("No tool specs parsed from %s", config_file)
                 continue
-            pids = run_all(specs, ds.dataset_dir, dry_run=args.dry_run)
+            
+            # Filter out specs that are already running (unless --force is set)
+            specs_to_run, specs_skipped = _filter_duplicate_specs(
+                specs, running_jobs, force=getattr(args, 'force', False)
+            )
+            
+            # Log skipped specs
+            for skipped_spec in specs_skipped:
+                logger.info(
+                    "SKIPPED (already running): %s@%s",
+                    skipped_spec.tool_name,
+                    skipped_spec.dataset_name,
+                )
+                total_skipped += 1
+            
+            # Launch remaining specs
+            pids = run_all(specs_to_run, ds.dataset_dir, dry_run=args.dry_run)
             total_launched += sum(1 for p in pids if p is not None or args.dry_run)
 
     mode = "DRY-RUN" if args.dry_run else "LIVE"
-    logger.info("[%s] Finished – %d command(s) dispatched.", mode, total_launched)
+    summary = f"[{mode}] Finished – {total_launched} command(s) dispatched"
+    if total_skipped:
+        summary += f", {total_skipped} skipped (already running)"
+    logger.info("%s.", summary)
 
 
 def cmd_list(args: argparse.Namespace) -> None:
@@ -149,6 +211,70 @@ def cmd_logs(args: argparse.Namespace) -> None:
     
     if not found_any and target:
         print(f"{Colors.YELLOW}No logs found for dataset '{target}'.{Colors.END}")
+
+
+def cmd_clean_logfiles(args: argparse.Namespace) -> None:
+    """Delete old log files, keeping only the most recent one per dataset.
+    
+    By default, cleans logs for all datasets. Use --dataset to clean only one.
+    """
+    from ln2t_watchdog.status import clean_logfiles_for_dataset
+    
+    code_dir = Path(args.code_dir).expanduser() if args.code_dir else None
+    datasets = scan_code_directory(code_dir)
+
+    if not datasets:
+        print(f"{Colors.YELLOW}No datasets with ln2t_watchdog configs found.{Colors.END}")
+        return
+
+    # Filter by dataset name if specified
+    if args.dataset:
+        datasets = [ds for ds in datasets if ds.dataset_name == args.dataset]
+        if not datasets:
+            logger.warning("No dataset found with name '%s'.", args.dataset)
+            print(f"{Colors.RED}✗{Colors.END} No dataset found with name '{args.dataset}'.")
+            return
+
+    if not args.force:
+        # Show what will be deleted
+        print()
+        print(f"{Colors.BOLD}Datasets to clean:{Colors.END}")
+        for ds in datasets:
+            from ln2t_watchdog.status import get_recent_logs
+            logs = get_recent_logs(ds.dataset_dir, limit=1000)
+            if logs:
+                print(f"  {Colors.CYAN}{ds.dataset_name}{Colors.END}: {len(logs) - 1} log file(s) will be deleted (keeping 1)")
+            else:
+                print(f"  {Colors.CYAN}{ds.dataset_name}{Colors.END}: no logs to clean")
+        
+        print()
+        response = input(f"{Colors.BOLD}Proceed with cleanup? (y/N):{Colors.END} ").strip().lower()
+        if response != "y":
+            print(f"{Colors.YELLOW}Cancelled.{Colors.END}")
+            return
+        print()
+
+    # Clean the log files
+    total_deleted = 0
+    total_errors = 0
+    
+    for ds in datasets:
+        deleted, errors = clean_logfiles_for_dataset(ds.dataset_dir)
+        total_deleted += deleted
+        total_errors += errors
+        
+        if deleted > 0 or errors > 0:
+            status_icon = f"{Colors.GREEN}✓{Colors.END}" if errors == 0 else f"{Colors.YELLOW}⚠{Colors.END}"
+            print(f"  {status_icon} {Colors.CYAN}{ds.dataset_name}{Colors.END}: deleted {deleted} file(s)", end="")
+            if errors > 0:
+                print(f", {errors} error(s)", end="")
+            print()
+
+    print()
+    summary = f"Total: {total_deleted} file(s) deleted"
+    if total_errors > 0:
+        summary += f", {total_errors} error(s)"
+    print(f"{Colors.BOLD}{summary}{Colors.END}")
 
 
 def cmd_init(args: argparse.Namespace) -> None:
@@ -489,6 +615,11 @@ def create_parser() -> argparse.ArgumentParser:
         default=None,
         help="Only run watchdog for the specified dataset name.",
     )
+    p_run.add_argument(
+        "--force",
+        action="store_true",
+        help="Bypass duplicate prevention and launch jobs even if already running.",
+    )
 
     # --- list ---
     sub.add_parser(
@@ -523,6 +654,25 @@ def create_parser() -> argparse.ArgumentParser:
         default=20,
         metavar="N",
         help="Maximum number of log files to show (default: 20).",
+    )
+
+    # --- clean-logfiles ---
+    p_clean = sub.add_parser(
+        "clean-logfiles",
+        help="Delete old log files, keeping only the most recent one per dataset.",
+        formatter_class=ColoredHelpFormatter,
+    )
+    p_clean.add_argument(
+        "--dataset",
+        metavar="DATASET",
+        default=None,
+        help="Clean only log files for the specified dataset (default: clean all datasets).",
+    )
+    p_clean.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Skip confirmation prompt and clean immediately.",
     )
 
     # --- init ---
@@ -607,6 +757,7 @@ def main(argv: list[str] | None = None) -> None:
         "list": cmd_list,
         "status": cmd_status,
         "logs": cmd_logs,
+        "clean-logfiles": cmd_clean_logfiles,
         "init": cmd_init,
         "systemctl": cmd_systemctl,
         "jobs": cmd_jobs,

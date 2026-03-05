@@ -77,6 +77,44 @@ def get_recent_logs(dataset_dir: Path, limit: int = 10) -> List[Path]:
     return logs_sorted[:limit]
 
 
+def clean_logfiles_for_dataset(dataset_dir: Path) -> Tuple[int, int]:
+    """Delete all log files for a dataset except the most recent one.
+    
+    Searches for logs in both ln2t_watchdog/logs and .ln2t_watchdog/logs directories.
+    
+    Returns a tuple of (deleted_count, error_count).
+    """
+    logs: List[Path] = []
+    
+    # Check both regular and hidden config directories
+    for config_dir in [dataset_dir / "ln2t_watchdog", dataset_dir / ".ln2t_watchdog"]:
+        log_dir = config_dir / "logs"
+        if log_dir.is_dir():
+            logs.extend(log_dir.iterdir())
+    
+    if not logs:
+        return 0, 0
+    
+    # Sort by modification time (newest first)
+    logs_sorted = sorted(logs, key=lambda p: p.stat().st_mtime, reverse=True)
+    
+    # Keep the first (most recent) log, delete the rest
+    deleted_count = 0
+    error_count = 0
+    
+    for log_path in logs_sorted[1:]:
+        try:
+            log_path.unlink()
+            deleted_count += 1
+        except OSError as exc:
+            error_count += 1
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning("Failed to delete log file %s: %s", log_path, exc)
+    
+    return deleted_count, error_count
+
+
 def check_systemd_unit(unit_name: str) -> dict:
     """Check detailed status of a systemd user unit.
     

@@ -96,7 +96,7 @@ ln2t-watchdog [--code-dir DIR] [-v] <command>
 
 | Command   | Description |
 |-----------|-------------|
-| `run`     | Scan all configs and launch commands. Use `--dry-run` / `-n` to preview. Optional: `--dataset NAME` to run only for a specific dataset. |
+| `run`     | Scan all configs and launch commands. **Prevents duplicate jobs** — skips launching if the same tool is already running on the same dataset. Options: `-n` / `--dry-run` to preview; `--dataset NAME` to run only for a specific dataset; `--force` to bypass duplicate prevention. |
 | `list`    | List discovered datasets and the commands that would be generated. |
 | `status`  | Print a status report (last run, systemd timer state, recent logs). |
 | `logs`    | Show recent log files, optionally filtered by dataset name. |
@@ -111,11 +111,14 @@ ln2t-watchdog init -o my_pipelines.yaml
 # Preview what would run
 ln2t-watchdog run --dry-run
 
-# Actually launch everything
+# Actually launch everything (with duplicate prevention)
 ln2t-watchdog run
 
 # Run only for a specific dataset
 ln2t-watchdog run --dataset 2024-Happy_Dog-abc123
+
+# Force launch even if jobs are already running (bypasses duplicate prevention)
+ln2t-watchdog run --force
 
 # Show status
 ln2t-watchdog status
@@ -125,6 +128,11 @@ ln2t-watchdog list
 
 # Show logs for a specific dataset
 ln2t-watchdog logs 2024-Happy_Dog-abc123
+
+# View and manage running jobs
+ln2t-watchdog jobs              # List all running jobs
+ln2t-watchdog kill --all        # Terminate all running jobs
+ln2t-watchdog kill --pid 12345  # Terminate job with specific PID
 ```
 
 ---
@@ -156,6 +164,36 @@ systemctl --user stop ln2t-watchdog.timer
 # Re-enable
 systemctl --user start ln2t-watchdog.timer
 ```
+
+---
+
+## Duplicate prevention
+
+**Automatic duplicate prevention** is enabled by default when running `ln2t-watchdog run`. 
+
+### How it works
+
+When the watchdog is triggered (either manually or by the nightly systemd timer), it:
+
+1. Scans for any jobs already running (same tool, same dataset)
+2. **Skips** launching duplicates — only launches tools that aren't currently running
+3. Logs which jobs were skipped due to being already running
+4. Returns a summary of launched vs. skipped jobs
+
+This prevents the common scenario where:
+- A tool started running at 02:00 night before 
+- Not yet finished when the next nightly trigger fires at 02:00
+- Without prevention: two instances of the same tool would compete for resources
+
+### Override with --force
+
+If you need to launch jobs even if duplicates exist, use the `--force` flag:
+
+```bash
+ln2t-watchdog run --force
+```
+
+This bypasses duplicate prevention and launches all configured jobs. Useful when manually testing or if you explicitly want multiple instances.
 
 ---
 
