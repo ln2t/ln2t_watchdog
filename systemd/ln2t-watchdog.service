@@ -4,6 +4,8 @@ Documentation=https://github.com/ln2t/ln2t_watchdog
 
 [Service]
 Type=oneshot
+User=ln2t-worker
+SupplementaryGroups=ln2t-members
 ExecStart=%h/.local/bin/ln2t-watchdog run
 # Give long-running pipelines time to start (the watchdog itself exits
 # quickly after spawning background processes).
